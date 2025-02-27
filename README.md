@@ -1,56 +1,79 @@
-# Documentation du Plugin Up Cache Control
+## Up Cache Control
 
-## Description
-Up Cache Control est un plugin WordPress qui permet de gérer et de désactiver les caches spécifiques liés à Gutenberg, ainsi que de vider automatiquement le cache lors des mises à jour.
+### Description
 
-## Fonctionnalités
-- Désactivation du cache des patterns Gutenberg
-- Désactivation du cache des styles de blocs
-- Désactivation du cache des fonctionnalités Gutenberg
-- Vidage automatique du cache après les mises à jour
+Up Cache Control est une extension WordPress qui fournit une interface centralisée pour gérer et vider différents types de caches au sein de votre site WordPress. Elle ajoute une page de menu d'administration dédiée et des boutons pratiques dans la barre d'outils d'administration, vous donnant un accès rapide aux actions essentielles de vidage de cache.
 
-## Installation
-1. Téléchargez le fichier ZIP du plugin.
-2. Dans votre administration WordPress, allez dans **Extensions > Ajouter > Téléverser une extension**.
-3. Sélectionnez le fichier ZIP et cliquez sur **Installer maintenant**.
-4. Activez le plugin.
+### Fonctionnalités
 
-## Configuration
-1. Après activation, allez dans **Réglages > Up Cache**.
-2. Cochez les options souhaitées :
-   - **Désactiver le cache pour Gutenberg Patterns** : Empêche la mise en cache des patterns Gutenberg.
-   - **Désactiver le cache pour les styles de blocs** : Empêche la mise en cache des styles de blocs.
-   - **Désactiver le cache pour les fonctionnalités Gutenberg** : Empêche la mise en cache des fonctionnalités Gutenberg.
-   - **Vider automatiquement le cache** : Vide le cache après chaque mise à jour (plugins, thèmes, ou WordPress).
-3. Cliquez sur **Enregistrer les modifications**.
+*   **Vidage de Cache Général :** Vide le cache d'objet WordPress et nettoie le cache du thème.
+*   **Vidage de Cache Gutenberg :** Vide les caches spécifiques liés aux motifs, catégories, styles et fonctionnalités des blocs Gutenberg, garantissant que votre contenu basé sur des blocs est toujours à jour.
+*   **Vidage des Transients :** Supprime tous les transients expirés de la base de données, optimisant ainsi les performances.
+*   **Actions de Cache Extensibles :** Permet à d'autres extensions ou thèmes d'enregistrer leurs propres actions personnalisées de vidage de cache via le filtre `up_cache_control_actions`.
+*   **Intégration au Menu d'Administration :** Ajoute une page dédiée "Up Cache Control" sous le menu "Outils".
+*   **Intégration à la Barre d'Outils d'Administration :** Ajoute un menu "Up Cache" pratique à la barre d'outils d'administration WordPress avec des actions déroulantes.
 
-## Fonctionnement technique
-### Transients concernés
-Le plugin agit sur les transients suivants :
-- `_wp_block_patterns_cache` : Cache des patterns Gutenberg.
-- `_wp_block_pattern_categories_cache` : Cache des catégories de patterns Gutenberg.
-- `_wp_block_styles_cache` : Cache des styles de blocs.
-- `_wp_gutenberg_features` : Cache des fonctionnalités Gutenberg.
+### Installation
 
-### Hooks utilisés
-- `pre_set_transient_*` : Empêche la mise en cache des transients spécifiques.
-- `upgrader_process_complete` : Déclenche le vidage du cache après une mise à jour.
+1.  Téléchargez le dossier `up-cache-control` dans le répertoire `/wp-content/plugins/`.
+2.  Activez l'extension via le menu 'Extensions' dans WordPress.
 
-## FAQ
-### Pourquoi désactiver ces caches ?
-Ces caches peuvent parfois causer des problèmes d'affichage ou empêcher les modifications récentes d'être visibles immédiatement. Les désactiver peut être utile en développement ou lors de modifications fréquentes.
+### Utilisation
 
-### Le plugin affecte-t-il les performances ?
-Désactiver ces caches peut légèrement augmenter le temps de chargement des pages, mais l'impact est généralement minime. Utilisez cette fonctionnalité avec précaution en production.
+1.  **Menu d'Administration :** Accédez à "Outils" -> "Up Cache Control" pour accéder à la page principale de gestion du cache. À partir de là, vous pouvez déclencher n'importe quelle action de vidage de cache disponible en cliquant sur les boutons correspondants.
 
-### Puis-je utiliser ce plugin avec un autre système de cache ?
-Oui, ce plugin est compatible avec la plupart des systèmes de cache (WP Rocket, W3 Total Cache, etc.). Il ne désactive que les caches spécifiques à Gutenberg.
+2.  **Barre d'Outils d'Administration :** Survolez le menu "Up Cache" dans la barre d'outils d'administration. Un menu déroulant apparaîtra avec des raccourcis vers chaque action de vidage de cache. Cliquer sur une action déclenchera le vidage du cache.
 
-## Support
-Pour toute question ou problème, veuillez ouvrir une issue sur [GitHub](https://github.com/votre-repo) ou contacter l'auteur.
+### Étendre avec des Actions de Cache Personnalisées
 
-## Auteur
-Ce plugin a été développé par **GEHIN Nicolas**.
+Mettre le fichier dans le plugin  /extend
 
-## Licence
-Ce plugin est sous licence GPLv3. Utilisez-le librement et modifiez-le selon vos besoins.
+Up Cache Control permet à d'autres extensions et thèmes d'ajouter leurs propres actions de vidage de cache. Pour ce faire, utilisez le filtre `up_cache_control_actions`.
+
+**Exemple :**
+
+```php
+<?php
+/**
+ * Ajouter une action de vidage de cache personnalisée.
+ *
+ * Cet exemple doit être placé dans le fichier functions.php de votre thème ou dans une autre extension.
+ */
+add_filter( 'up_cache_control_actions', 'ma_fonction_personnalisee_cache_action' );
+
+function ma_fonction_personnalisee_cache_action( $actions ) {
+    $actions[] = array(
+        'slug'     => 'mon-cache-personnalise', // Slug unique pour votre action
+        'label'    => 'Vider Mon Cache Personnalisé', // Libellé convivial
+        'callback' => 'ma_fonction_personnalisee_vider_cache', // Fonction de rappel
+    );
+    return $actions;
+}
+
+/**
+ * Fonction de rappel pour vider votre cache personnalisé.
+ */
+function ma_fonction_personnalisee_vider_cache() {
+    // Ajoutez votre logique de vidage de cache personnalisé ici.
+    // Par exemple :
+    delete_transient( 'mon_cache_personnalise_transient' );
+    error_log( 'Cache personnalisé vidé !' ); // Remplacez par une journalisation réelle
+}
+?>
+```
+
+**Explication :**
+
+*   **`up_cache_control_actions` :** Le filtre utilisé pour ajouter votre action personnalisée.
+*   **`slug` :** Un identifiant unique pour votre action. Il doit être unique par rapport aux autres actions.
+*   **`label` :** Le texte qui sera affiché dans le menu d'administration et la barre d'outils.
+*   **`callback` :** La fonction qui sera exécutée lorsque l'action sera déclenchée.  C'est ici que vous mettez votre code de vidage de cache.
+
+### Développeur
+
+[Votre Nom]
+[Votre Site Web/Profil
+
+### Licence
+
+GPL2 ou ultérieure

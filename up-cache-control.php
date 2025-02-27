@@ -1,173 +1,190 @@
 <?php
 /**
  * Plugin Name: Up Cache Control
- * Description: Gestionnaire de cache pour désactiver les transients liés à Gutenberg et contrôler le cache.
- * Version: 1.1
- * Author: GEHIN Nicolas
- * Text Domain: up-cache-control
- * Domain Path: /languages
+ * Description: Adds cache clearing options to the admin menu and toolbar.
+ * Version: 1.0.0
+ * Author: Your Name
+ * License: GPL2 or later
  */
 
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly.
+}
+include_once "extend/add-cache-control-item.php";
+class UpCacheControl {
+    private $cache_actions = [];
 
-defined('ABSPATH') || exit;
+    public function __construct() {
+        // Define cache actions
+        $this->define_cache_actions();
 
-class Up_Cache_Control {
-    private static $instance = null;
-    
-    private $transient_filters = [
-        'disable_block_patterns_cache' => [
-            '_wp_block_patterns_cache',
-            '_wp_block_pattern_categories_cache'
-        ],
-        'disable_block_styles_cache' => [
-            '_wp_block_styles_cache'
-        ],
-        'disable_gutenberg_features_cache' => [
-            '_wp_gutenberg_features'
-        ]
-    ];
+        // Add admin menu page
+        add_action('admin_menu', [$this, 'add_cache_flush_page']);
 
-    private $default_options = [
-        'disable_block_patterns_cache' => false,
-        'disable_block_styles_cache' => false,
-        'disable_gutenberg_features_cache' => false,
-        'auto_flush_cache_on_update' => false,
-    ];
+        // Add admin bar buttons
+        add_action('admin_bar_menu', [$this, 'add_admin_bar_buttons'], 999);
 
-    private function __construct() {
-        add_action('plugins_loaded', [$this, 'load_textdomain']);
-        add_action('admin_menu', [$this, 'add_settings_page']);
-        add_action('admin_init', [$this, 'register_settings']);
-        add_filter('upgrader_process_complete', [$this, 'maybe_flush_cache'], 10, 2);
-        $this->apply_transient_filters();
+        // Allow external addition of cache actions
+        add_action('plugins_loaded', [$this, 'load_external_cache_actions']);
     }
 
-    public static function get_instance() {
-        if (null === self::$instance) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
+    /**
+     * Define the default cache actions.
+     */
+    private function define_cache_actions() {
+        $this->add_cache_action(
+            'flush-general',
+            __('😡 General Cache', 'up'),
+            function () {
+                wp_cache_flush();
+                wp_clean_themes_cache();
+            }
+        );
 
-    public function load_textdomain() {
-        load_plugin_textdomain(
-            'up-cache-control',
-            false,
-            dirname(plugin_basename(__FILE__)) . '/languages'
+        $this->add_cache_action(
+            'flush-gutenberg',
+            __('😎 Gutenberg Cache', 'up'),
+            function () {
+                delete_transient('_wp_block_patterns_cache');
+                delete_transient('_wp_block_pattern_categories_cache');
+                delete_transient('_wp_block_styles_cache');
+                delete_transient('_wp_gutenberg_features');
+                delete_transient('block_templates');
+                delete_transient('global_styles');
+                wp_clean_themes_cache();
+            }
+        );
+
+        $this->add_cache_action(
+            'flush-transients',
+            __('😛 Transients', 'up'),
+            function () {
+                global $wpdb;
+                $wpdb->query("DELETE FROM $wpdb->options WHERE option_name LIKE '_transient_%'");
+                echo '<div class="notice notice-success is-dismissible"><p>' . __('Transients vidés avec succès.', 'up') . '</p></div>';
+            }
         );
     }
 
-    private function get_options() {
-        return wp_parse_args(
-            (array) get_option('up_cache_control_options', []),
-            $this->default_options
-        );
-    }
-
-    public function add_settings_page() {
-        add_options_page(
-            __('Up Cache Control', 'up-cache-control'),
-            __('Up Cache', 'up-cache-control'),
-            'manage_options',
-            'up-cache-control',
-            [$this, 'render_settings_page']
-        );
-    }
-
-    public function render_settings_page() {
-        $options = $this->get_options();
-        ?>
-        <div class="wrap">
-            <h1><?php _e('Up Cache Control', 'up-cache-control'); ?></h1>
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('up_cache_control_settings');
-                do_settings_sections('up-cache-control');
-                ?>
-                <table class="form-table">
-                    <?php foreach ($this->transient_filters as $key => $transients) : ?>
-                        <tr>
-                            <th scope="row"><?php printf(__('Désactiver le cache pour %s', 'up-cache-control'), $this->get_feature_name($key)); ?></th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" 
-                                           name="up_cache_control_options[<?php echo esc_attr($key); ?>]" 
-                                           <?php checked($options[$key]); ?>>
-                                    <?php printf(__('Désactiver le cache pour %s', 'up-cache-control'), $this->get_feature_name($key)); ?>
-                                </label>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    <tr>
-                        <th scope="row"><?php _e('Vider automatiquement le cache', 'up-cache-control'); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" 
-                                       name="up_cache_control_options[auto_flush_cache_on_update]" 
-                                       <?php checked($options['auto_flush_cache_on_update']); ?>>
-                                <?php _e('Vider le cache après les mises à jour', 'up-cache-control'); ?>
-                            </label>
-                        </td>
-                    </tr>
-                </table>
-                <?php submit_button(); ?>
-            </form>
-        </div>
-        <?php
-    }
-
-    private function get_feature_name($key) {
-        $names = [
-            'disable_block_patterns_cache' => __('Gutenberg Patterns', 'up-cache-control'),
-            'disable_block_styles_cache' => __('Styles de blocs', 'up-cache-control'),
-            'disable_gutenberg_features_cache' => __('Fonctionnalités Gutenberg', 'up-cache-control')
-        ];
-        return $names[$key] ?? $key;
-    }
-
-    public function register_settings() {
-        register_setting(
-            'up_cache_control_settings',
-            'up_cache_control_options',
-            ['sanitize_callback' => [$this, 'sanitize_options']]
-        );
-    }
-
-    public function sanitize_options($input) {
-        $sanitized = [];
-        foreach ($this->default_options as $key => $default) {
-            $sanitized[$key] = isset($input[$key]) && $input[$key] === 'on';
-        }
-        return $sanitized;
-    }
-
-    private function apply_transient_filters() {
-        $options = $this->get_options();
-        
-        foreach ($this->transient_filters as $option_key => $transients) {
-            if ($options[$option_key]) {
-                foreach ($transients as $transient) {
-                    add_filter("pre_set_transient_$transient", '__return_true');
+    /**
+     * Allow external definition of cache actions through a filter.  Called on plugins_loaded action.
+     */
+    public function load_external_cache_actions() {
+        $external_actions = apply_filters('up_cache_control_actions', []);
+var_dump($external_actions);
+        if (is_array($external_actions)) {
+            foreach ($external_actions as $action) {
+                if (isset($action['slug'], $action['label'], $action['callback']) && is_callable($action['callback'])) {
+                    $this->add_cache_action($action['slug'], $action['label'], $action['callback']);
+                } else {
+                    error_log('Invalid Up Cache Control action provided: ' . print_r($action, true)); // Log invalid actions
                 }
             }
         }
     }
 
-    public function maybe_flush_cache($upgrader, $options) {
-        if ($this->get_options()['auto_flush_cache_on_update']) {
-            wp_cache_flush();
-            $this->flush_transients_cache();
-        }
+
+    /**
+     * Add a cache action.
+     *
+     * @param string   $slug     The unique slug for the action.
+     * @param string   $label    The user-friendly label for the action.
+     * @param callable $callback The callback function to execute.
+     */
+    public function add_cache_action($slug, $label, $callback) {
+        $this->cache_actions[$slug] = [
+            'label' => $label,
+            'callback' => $callback
+        ];
     }
 
-    private function flush_transients_cache() {
-        foreach ($this->transient_filters as $transients) {
-            foreach ($transients as $transient) {
-                delete_transient($transient);
+    /**
+     * Add the cache flush management page.
+     */
+    public function add_cache_flush_page() {
+        add_management_page(
+            __('Up Cache Control', 'up'),
+            __('Up Cache Control', 'up'),
+            'manage_options',
+            'up-cache-control',
+            [$this, 'render_cache_flush_page']
+        );
+    }
+
+    /**
+     * Render the cache flush page.
+     */
+    public function render_cache_flush_page() {
+        if (isset($_GET['action']) && isset($_GET['type'])) {
+            $action_type = sanitize_key($_GET['type']);
+            if (isset($this->cache_actions[$action_type])) {
+                check_admin_referer('flush-cache-nonce-' . $action_type);
+                call_user_func($this->cache_actions[$action_type]['callback']);
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Cache vidé avec succès.', 'up') . '</p></div>';
+            } else {
+                echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__('Invalid cache action.', 'up') . '</p></div>';
             }
         }
+
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Up Cache Control', 'up'); ?></h1>
+            <p><?php esc_html_e('Choose an action to clear specific caches.', 'up'); ?></p>
+
+            <?php foreach ($this->cache_actions as $slug => $action): ?>
+                <form method="get" style="margin-bottom: 20px;">
+                    <input type="hidden" name="page" value="up-cache-control">
+                    <input type="hidden" name="action" value="flush">
+                    <input type="hidden" name="type" value="<?php echo esc_attr($slug); ?>">
+                    <?php wp_nonce_field('flush-cache-nonce-' . $slug); ?>
+                    <button type="submit" class="button button-primary"><?php echo esc_html($action['label']); ?></button>
+                </form>
+            <?php endforeach; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Add buttons to the admin bar.
+     *
+     * @param WP_Admin_Bar $admin_bar The admin bar object.
+     */
+    public function add_admin_bar_buttons($admin_bar) {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $admin_bar->add_node([
+            'id'    => 'up-cache-control-menu',
+            'title' => __('Up Cache', 'up'),
+            'href'  => admin_url('tools.php?page=up-cache-control'),
+            'meta'  => ['title' => __('Manage Up Cache', 'up')],
+        ]);
+
+        foreach ($this->cache_actions as $slug => $action) {
+            $admin_bar->add_node([
+                'id'     => 'flush-cache-' . $slug,
+                'title'  => apply_filters('up_cache_control_button_label', $action['label'], $slug),
+                'href'   => add_query_arg([
+                    'page'    => 'up-cache-control',
+                    'action'  => 'flush',
+                    'type'    => $slug,
+                    '_wpnonce' => wp_create_nonce('flush-cache-nonce-' . $slug),
+                ], admin_url('tools.php')),
+                'parent' => 'up-cache-control-menu',
+                'meta'   => [
+                    'title' => apply_filters('up_cache_control_button_tooltip', $action['label'], $slug),
+                ],
+            ]);
+        }
+    }
+       /**
+     * Deletes the transient when the plugin is deactivated.
+     */
+    public function deactivate() {
+        delete_transient( 'up_cache_control_external_actions' );
     }
 }
 
-// Initialisation du plugin
-Up_Cache_Control::get_instance();
+// Instantiate the class
+new UpCacheControl();
