@@ -70,9 +70,8 @@ function ma_fonction_personnalisee_vider_cache() {
 *   **`callback` :** La fonction qui sera exécutée lorsque l'action sera déclenchée.  C'est ici que vous mettez votre code de vidage de cache.
 
 ### Développeur
-
-[Votre Nom]
-[Votre Site Web/Profil
+GEHIN Nicolas
+Upcoder
 
 ### Licence
 

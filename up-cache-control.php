@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Up Cache Control
  * Description: Adds cache clearing options to the admin menu and toolbar.
- * Version: 1.0.0
- * Author: Your Name
+ * Version: 1.3
+ * Author: GEHIN nicolas
  * License: GPL2 or later
  */
 
