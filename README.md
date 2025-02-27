@@ -4,7 +4,7 @@
 **Up Cache Control** est un plugin WordPress permettant d'effacer différents types de cache directement depuis la barre d'administration. Il utilise désormais AJAX pour exécuter les actions sans recharger la page.
 
 ## Version
-**1.4/.0**
+**1.4.0**
 
 ## Auteur
 **Gehin Nicolas**
