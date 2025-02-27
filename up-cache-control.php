@@ -10,7 +10,7 @@
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
-include_once "extend/add-cache-control-item.php";
+
 class UpCacheControl {
     private $cache_actions = [];
 
@@ -71,7 +71,6 @@ class UpCacheControl {
      */
     public function load_external_cache_actions() {
         $external_actions = apply_filters('up_cache_control_actions', []);
-var_dump($external_actions);
         if (is_array($external_actions)) {
             foreach ($external_actions as $action) {
                 if (isset($action['slug'], $action['label'], $action['callback']) && is_callable($action['callback'])) {
@@ -129,7 +128,6 @@ var_dump($external_actions);
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Up Cache Control', 'up'); ?></h1>
-            <p><?php esc_html_e('Choose an action to clear specific caches.', 'up'); ?></p>
 
             <?php foreach ($this->cache_actions as $slug => $action): ?>
                 <form method="get" style="margin-bottom: 20px;">
@@ -156,7 +154,7 @@ var_dump($external_actions);
 
         $admin_bar->add_node([
             'id'    => 'up-cache-control-menu',
-            'title' => __('Up Cache', 'up'),
+            'title' => __('😎', 'up'),
             'href'  => admin_url('tools.php?page=up-cache-control'),
             'meta'  => ['title' => __('Manage Up Cache', 'up')],
         ]);
